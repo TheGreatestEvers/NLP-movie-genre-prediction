@@ -10,10 +10,13 @@ from sklearn.model_selection import train_test_split
 
 if torch.backends.mps.is_available():
     device = torch.device("mps")  # For Apple Silicon
+    print("Selected device: mps")
 elif torch.cuda.is_available():
     device = torch.device("cuda")  # For NVIDIA GPUs
+    print("Selected device: cuda")
 else:
     device = torch.device("cpu")    # Fallback to CPU
+    print("Selected device: cpu")
 
 def train(num_epochs=100, data_path = "./data/train_combined.csv"):
     # Load the pre-trained BERT tokenizer
@@ -54,7 +57,7 @@ def train(num_epochs=100, data_path = "./data/train_combined.csv"):
     labels_test = test_data["genre_numbers"]
 
     # Initialize the model
-    model = GenrePredictor(num_genres=9) 
+    model = GenrePredictor(num_genres=9).to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=2e-5)
 
@@ -64,9 +67,9 @@ def train(num_epochs=100, data_path = "./data/train_combined.csv"):
     for epoch in tqdm(range(num_epochs)):
         for batch in train_dataloader:
 
-            input_ids = batch['input_ids']
-            attention_mask = batch['attention_mask']
-            labels_train = batch['labels']
+            input_ids = batch['input_ids'].to(device)
+            attention_mask = batch['attention_mask'].to(device)
+            labels_train = batch['labels'].to(device)
 
             optimizer.zero_grad()
             logits = model(input_ids=input_ids, attention_mask=attention_mask)
@@ -74,7 +77,7 @@ def train(num_epochs=100, data_path = "./data/train_combined.csv"):
             loss.backward()
             optimizer.step()
 
-            print(f"epoch: {epoch}, loss: {loss:.4f}")
+            print("Next batch.")
 
         # Validation loop
         model.eval()
