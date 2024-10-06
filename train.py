@@ -6,6 +6,7 @@ from tqdm import tqdm
 import torch
 import pandas as pd
 from data import MovieGenreDataset
+from sklearn.model_selection import train_test_split
 
 if torch.backends.mps.is_available():
     device = torch.device("mps")  # For Apple Silicon
@@ -33,22 +34,24 @@ def train(num_epochs=100, data_path = "./data/train_combined.csv"):
     }
     data['genre_numbers'] = data['genre'].map(genre_mapping)
 
-    texts = data["combined_text"]
-    labels = data["genre_numbers"]
+    # Split the data into training and temporary sets
+    # And split the temporary set into testing and validation sets
+    train_data, temp_data = train_test_split(data, test_size=0.2, random_state=42)
+    test_data, val_data = train_test_split(temp_data, test_size=0.5, random_state=42)
 
-    print(type(labels))
+    # Create the dataloaders for the training, validation, and testing sets
+    texts_train = train_data["combined_text"]
+    labels_train = train_data["genre_numbers"]
+    train_dataset = MovieGenreDataset(texts_train, labels_train, tokenizer)
+    train_dataloader = DataLoader(train_dataset, batch_size=4, shuffle=True)
 
-    # Overfit
-    texts = texts[0]
-    labels = labels[0]
+    texts_val = val_data["combined_text"]
+    labels_val = val_data["genre_numbers"]
+    val_dataset = MovieGenreDataset(texts_val, labels_val, tokenizer)
+    val_dataloader = DataLoader(val_dataset, batch_size=4, shuffle=False)
 
-    print(type(labels))
-
-    # Create the dataset
-    dataset = MovieGenreDataset(texts, labels, tokenizer)
-
-    # Create a DataLoader
-    dataloader = DataLoader(dataset, batch_size=4, shuffle=True)
+    texts_test = test_data["combined_text"]
+    labels_test = test_data["genre_numbers"]
 
     # Initialize the model
     model = GenrePredictor(num_genres=9) 
@@ -59,19 +62,35 @@ def train(num_epochs=100, data_path = "./data/train_combined.csv"):
 
     # Example forward pass (for testing)
     for epoch in tqdm(range(num_epochs)):
-        for batch in dataloader:
+        for batch in train_dataloader:
 
             input_ids = batch['input_ids']
             attention_mask = batch['attention_mask']
-            labels = batch['labels']
+            labels_train = batch['labels_train']
 
             optimizer.zero_grad()
             logits = model(input_ids=input_ids, attention_mask=attention_mask)
-            loss = loss_fn(logits, labels)
+            loss = loss_fn(logits, labels_train)
             loss.backward()
             optimizer.step()
 
-            print(f"epoch: {epoch}, loss: {loss.backward:.4f}")
+            print(f"epoch: {epoch}, loss: {loss:.4f}")
+
+        # Validation loop
+        model.eval()
+        val_loss = 0
+        with torch.no_grad():
+            for batch in val_dataloader:
+                input_ids = batch['input_ids'].to(device)
+                attention_mask = batch['attention_mask'].to(device)
+                labels = batch['labels'].to(device)
+
+                logits = model(input_ids=input_ids, attention_mask=attention_mask)
+                loss = loss_fn(logits, labels)
+                val_loss += loss.item()
+
+        val_loss /= len(val_dataloader)
+        print(f"epoch: {epoch}, training loss: {loss:.4f}, validation loss: {val_loss:.4f}")
 
 if __name__ == "__main__":
     train()

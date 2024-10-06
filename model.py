@@ -28,6 +28,6 @@ class GenrePredictor(nn.Module):
         cls_token_embedding = outputs[0][:, 0, :]  # Shape: [batch_size, hidden_size]
 
         
-        logits = self.classifier(cls_token_embedding)
+        logits = self.classification_head(cls_token_embedding)
         return logits
 

@@ -2,13 +2,12 @@ import torch
 from torch.utils.data import Dataset
 
 class MovieGenreDataset(Dataset):
-    def __init__(self, texts, labels, tokenizer, max_length=512):
+    def __init__(self, texts, labels, tokenizer, max_length=10000):
         self.texts = texts
         self.labels = labels
         self.tokenizer = tokenizer
         self.max_length = max_length
 
-        print(labels.shape)
 
     def __len__(self):
         return len(self.texts)
@@ -23,11 +22,13 @@ class MovieGenreDataset(Dataset):
             add_special_tokens=True,
             max_length=self.max_length,
             return_token_type_ids=False,
-            padding='max_length',
+            padding=False,
             truncation=True,
             return_attention_mask=True,
             return_tensors='pt',  # Return PyTorch tensors
         )
+
+        print(encoding['input_ids'].shape)
 
         input_ids = encoding['input_ids'].flatten()  # Shape: [max_length]
         attention_mask = encoding['attention_mask'].flatten()  # Shape: [max_length]
