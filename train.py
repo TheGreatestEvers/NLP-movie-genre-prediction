@@ -40,8 +40,8 @@ def train(num_epochs=100, data_path = "./data/train_combined.csv"):
     test_data, val_data = train_test_split(temp_data, test_size=0.5, random_state=42)
 
     # Create the dataloaders for the training, validation, and testing sets
-    texts_train = train_data["combined_text"]
-    labels_train = train_data["genre_numbers"]
+    texts_train = train_data["combined_text"].reset_index(drop=True)
+    labels_train = train_data["genre_numbers"].reset_index(drop=True)
     train_dataset = MovieGenreDataset(texts_train, labels_train, tokenizer)
     train_dataloader = DataLoader(train_dataset, batch_size=4, shuffle=True)
 
@@ -66,7 +66,7 @@ def train(num_epochs=100, data_path = "./data/train_combined.csv"):
 
             input_ids = batch['input_ids']
             attention_mask = batch['attention_mask']
-            labels_train = batch['labels_train']
+            labels_train = batch['labels']
 
             optimizer.zero_grad()
             logits = model(input_ids=input_ids, attention_mask=attention_mask)
