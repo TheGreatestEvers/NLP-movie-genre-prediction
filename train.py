@@ -4,6 +4,7 @@ from model import GenrePredictor
 from data import Dataset
 from tqdm import tqdm
 import torch
+import pandas as pd
 
 if torch.backends.mps.is_available():
     device = torch.device("mps")  # For Apple Silicon
@@ -12,13 +13,23 @@ elif torch.cuda.is_available():
 else:
     device = torch.device("cpu")    # Fallback to CPU
 
-def train(num_epochs=100):
+def train(num_epochs=100, data_path = "./data/train_combined.csv"):
     # Load the pre-trained BERT tokenizer
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 
-    # Sample data
-    texts = ["A great movie about friendship.", "An action-packed thriller."]
-    labels = [0, 1] 
+    data = pd.read_csv(data_path)
+
+    texts = data.iloc[:, 0]
+    labels = data.iloc[:, 1]
+
+    # Overfit
+    texts = texts[0]
+    labels = labels[0]
+
+    print(texts)
+    print(labels)
+    import sys
+    sys.exit()
 
     # Create the dataset
     dataset = Dataset(texts, labels, tokenizer)
