@@ -5,6 +5,7 @@ from data import Dataset
 from tqdm import tqdm
 import torch
 import pandas as pd
+from data import MovieGenreDataset
 
 if torch.backends.mps.is_available():
     device = torch.device("mps")  # For Apple Silicon
@@ -19,20 +20,32 @@ def train(num_epochs=100, data_path = "./data/train_combined.csv"):
 
     data = pd.read_csv(data_path)
 
-    texts = data.iloc[:, 0]
-    labels = data.iloc[:, 1]
+    genre_mapping = {
+        'drama': 0,
+        'comedy': 1,
+        'horror': 2,
+        'action': 3,
+        'romance': 4,
+        'western': 5,
+        'animation': 6,
+        'crime': 7,
+        'sci-fi': 8
+    }
+    data['genre_numbers'] = data['genre'].map(genre_mapping)
+
+    texts = data["combined_text"]
+    labels = data["genre_numbers"]
+
+    print(type(labels))
 
     # Overfit
     texts = texts[0]
     labels = labels[0]
 
-    print(texts)
-    print(labels)
-    import sys
-    sys.exit()
+    print(type(labels))
 
     # Create the dataset
-    dataset = Dataset(texts, labels, tokenizer)
+    dataset = MovieGenreDataset(texts, labels, tokenizer)
 
     # Create a DataLoader
     dataloader = DataLoader(dataset, batch_size=4, shuffle=True)
@@ -43,7 +56,6 @@ def train(num_epochs=100, data_path = "./data/train_combined.csv"):
     optimizer = torch.optim.Adam(model.parameters(), lr=2e-5)
 
     loss_fn = torch.nn.CrossEntropyLoss()
-
 
     # Example forward pass (for testing)
     for epoch in tqdm(range(num_epochs)):

@@ -8,6 +8,8 @@ class MovieGenreDataset(Dataset):
         self.tokenizer = tokenizer
         self.max_length = max_length
 
+        print(labels.shape)
+
     def __len__(self):
         return len(self.texts)
 
