@@ -11,6 +11,9 @@ class GenrePredictor(nn.Module):
         
         self.bert = BertModel.from_pretrained('bert-base-uncased')
 
+        for param in self.bert.parameters():
+            param.requires_grad = False
+
         self.classification_head = nn.Sequential(
             nn.Linear(self.bert.config.hidden_size, 256),
             nn.ReLU(),
