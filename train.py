@@ -7,6 +7,7 @@ import torch
 import pandas as pd
 from data import MovieGenreDataset
 from sklearn.model_selection import train_test_split
+import wandb
 
 if torch.backends.mps.is_available():
     device = torch.device("mps")  # For Apple Silicon
@@ -22,8 +23,8 @@ def train(num_epochs=100, data_path = "./data/train_combined.csv"):
     # Load the pre-trained BERT tokenizer
     tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 
-    data = pd.read_csv(data_path)
-
+    # Read dataframe and map genres to class numbers
+    data = pd.read_csv(data_path).head(10)
     genre_mapping = {
         'drama': 0,
         'comedy': 1,
@@ -37,47 +38,50 @@ def train(num_epochs=100, data_path = "./data/train_combined.csv"):
     }
     data['genre_numbers'] = data['genre'].map(genre_mapping)
 
-    # Split the data into training and temporary sets
-    # And split the temporary set into testing and validation sets
-    train_data, temp_data = train_test_split(data, test_size=0.2, random_state=42)
+    # Split the data
+    train_data, temp_data = train_test_split(data, test_size=0.4, random_state=42)
     test_data, val_data = train_test_split(temp_data, test_size=0.5, random_state=42)
 
-    # Create the dataloaders for the training, validation, and testing sets
     texts_train = train_data["combined_text"].reset_index(drop=True)
     labels_train = train_data["genre_numbers"].reset_index(drop=True)
     train_dataset = MovieGenreDataset(texts_train, labels_train, tokenizer)
-    train_dataloader = DataLoader(train_dataset, batch_size=4, shuffle=True)
+    train_dataloader = DataLoader(train_dataset, batch_size=16, shuffle=True)
 
     texts_val = val_data["combined_text"]
     labels_val = val_data["genre_numbers"]
     val_dataset = MovieGenreDataset(texts_val, labels_val, tokenizer)
-    val_dataloader = DataLoader(val_dataset, batch_size=4, shuffle=False)
+    val_dataloader = DataLoader(val_dataset, batch_size=16, shuffle=False)
 
     texts_test = test_data["combined_text"]
     labels_test = test_data["genre_numbers"]
 
-    # Initialize the model
+    # Initialize training related
     model = GenrePredictor(num_genres=9).to(device)
-
     optimizer = torch.optim.Adam(model.parameters(), lr=2e-5)
-
     loss_fn = torch.nn.CrossEntropyLoss()
 
-    # Example forward pass (for testing)
-    for epoch in tqdm(range(num_epochs)):
-        for batch in train_dataloader:
+    wandb.init(
+        project="nlp_movie_genres",
+    )
 
+    # Train loop
+    for epoch in range(num_epochs):
+        train_loss = 0
+        for batch in train_dataloader:
             input_ids = batch['input_ids'].to(device)
             attention_mask = batch['attention_mask'].to(device)
-            labels_train = batch['labels'].to(device)
+            labels = batch['labels'].to(device)
 
             optimizer.zero_grad()
             logits = model(input_ids=input_ids, attention_mask=attention_mask)
-            loss = loss_fn(logits, labels_train)
+            loss = loss_fn(logits, labels)
+            train_loss += loss.item()
             loss.backward()
             optimizer.step()
 
-            print("Next batch.")
+            wandb.log({"train_batch_loss": loss.item()})
+        
+        train_loss /= len(train_dataloader)
 
         # Validation loop
         model.eval()
@@ -93,7 +97,11 @@ def train(num_epochs=100, data_path = "./data/train_combined.csv"):
                 val_loss += loss.item()
 
         val_loss /= len(val_dataloader)
-        print(f"epoch: {epoch}, training loss: {loss:.4f}, validation loss: {val_loss:.4f}")
+
+        wandb.log({"train_loss": train_loss, "val_loss": val_loss})
+        print(f"epoch: {epoch}, training loss: {train_loss:.4f} | val loss: {val_loss:.4f}")
+
+    wandb.finish()
 
 if __name__ == "__main__":
     train()
